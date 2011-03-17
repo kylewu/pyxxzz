@@ -15,7 +15,7 @@ from littlewar import LittleWar
 
 if __name__ == '__main__':
     user_list = ['wenbin%s@wenbinwu.com' % n for n in ['10', '11', '12', '13', '14', '15']]
-    password = 'CBAnbaWW'
+    password = 'abcdefg'
     while True:
         print 'Start working'
         for user in user_list:

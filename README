@@ -2,7 +2,7 @@ A simple tool for Little War in RenRen.com
 
 HowTo:
 1, Python should be installed in your machine.
-2, change password and user_list in start.py, and maybe you want to change sleep time also
+2, change password and user_list in start.py, and maybe you want to change plan you want to use to produce
 3, open termianl, run start.py using this command : python start.py
 
 For Mac user: Python is already installed in mac. Start from step 2

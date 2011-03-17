@@ -23,6 +23,7 @@
 import cookielib, urllib2, urllib
 import sys, time, re
 import hashlib
+from datetime import datetime
 
 from BeautifulSoup import BeautifulSoup
 import httplib2
@@ -73,6 +74,12 @@ use_skill_data      = '{"skillId":%d,"fId":"%d"}'
 defence_loot_data   = '{"desc_id":"%d"}'
 accept_reward_data  = '{"actId":%d,"fId":"%d"}'
 
+# Special 
+send_spy_URL        = fminutesURL + 'api.php?inuId=%s&method=spy.sentSpy'
+send_spy_data       = '{"placeId":%d,"fId":"%d"}'
+recv_treasure_URL   = fminutesURL + 'api.php?inuId=%s&method=spy.recieveTreasure'
+recv_treasure_data  = '{"placeId":%d}'
+
 # Not Supported
 feed_reward_URL     = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptFeedReward' 
 feed_reward_data    = '{"actId":%d,"fId":"%d"}'
@@ -91,8 +98,8 @@ beast_type = {
                 2006 : ('Zong Xiong'  , 10),
                 2007 : ('some'        , 21),
 
-                # March 17 2011
                 2020 : ('Lv Kong Que' , 12),
+                2023 : ('some'        , 100),
              }
 
 # NOTE 1. Little War uses link like http://xnapi.lw.fminutes.com/?xxx=xxx
@@ -111,10 +118,21 @@ class User():
         self.population_limit = 0
         self.population_all   = 0
 
+        self.friend_list = []
+        self.slave_list = []
+
         self.time = 0
 
     def setTime(self, time):
         self.time = time
+
+    def update_friend_list(self, friends):
+        for friend in friends.values():
+            self.friend_list.append(friend['uid'])
+        self.friend_list.remove(1)
+
+    def update_slave_list(self, slaves):
+        self.slave_list = slaves
 
     def update(self, user):                                                                                                                         
         self.id               = user["uid"]
@@ -132,6 +150,8 @@ class User():
                                                                                                     self.population_all,
                                                                                                     self.population_limit,
                                                                                                     self.mp)
+        print 'friend list : %s' % self.friend_list
+        print 'slave list : %s' % self.slave_list
     
 class LittleWar():
 
@@ -207,6 +227,11 @@ class LittleWar():
         # get keyname and data from userinfo
         userinfo = json.loads(userinfo)
 
+        # user info
+        self.user = User()
+        self.user.update(userinfo['info']['player_info'])
+        self.user.setTime(userinfo['info']['time'])
+
         self.keyName = userinfo['info']['getKey']['keyName']
         self.key = userinfo['info']['getKey']['key']
 
@@ -214,18 +239,18 @@ class LittleWar():
         self.requestSig = self.get_sig(self.key, self.keyName)
         #print self.keyName, self.key, self.requestSig
 
-        # user info
-        self.user = User()
-        self.user.update(userinfo['info']['player_info'])
-        self.user.setTime(userinfo['info']['time'])
-        #self.user.log()
-
         # friend run
         friendrun = self.post_friend_run(self.user.time)
+        
+        # friend list and slave list
+        friendrun = json.loads(friendrun)
+        self.user.update_friend_list(friendrun['info']['gameData']['data'])
+        self.user.update_slave_list(friendrun['info']['gameData']['slave'])
+        #self.user.log()
 
         # visit myself
         scenerun = self.post_scene_run_without_sig(self.user.id)
-        print 'user id %d' % self.user.id
+        print 'my id %d' % self.user.id
 
         # 1 : Finish personal job at home
         scenerun = json.loads(scenerun)
@@ -236,18 +261,57 @@ class LittleWar():
         # 1.3 : Kill animals at home
         self.attack_beasts(scenerun)
 
-        # 2 : check friends
-        friendrun = json.loads(friendrun)
-        self.visit_friends(friendrun)
+        # Special
+        #TODO not complete test
+        #self.spy_case(scenerun)
 
-    def visit_friends(self, data):
-        friends = data['info']['gameData']['data']
-        slaves  = data['info']['gameData']['slave']
-        print 'Total %d friends' % len(friends)
+        # 2 : check friends
+        self.visit_friends()
+
+    # Special spy case started in Mar 17 2011
+    def spy_case(self, data):
+        ids = [59094425,355852754,356032671,356151199,356298870,356527009,356837352]
+        ids.remove(self.user.id)
+
+        print 'spy case'
+        if not data['info']['enter_scene'].has_key('spy'):
+            return
+
+        spy = data['info']['enter_scene']['spy']
+
+        for i in range(len(spy)):
+
+            #{"friend_uid":0,"time":1300382359,"status":1}
+            # status == 1 if available
+            s = spy[i]
+            if s['status'] == 1:
+                b = False
+                for id in ids:
+                    b = self.deal_spy_case(i, id)
+                    if b:
+                        break
+                if not b:
+                    purl_friends = [f for f in self.user.friend_list if not f in ids]
+                    print purl_friends
+                    # send to friends
+                    for id in purl_friends:
+                        if self.self.deal_spy_case(i, id):
+                            break
+
+    def deal_spy_case(self, placeId, id):
+        res = self.post_send_spy(placeId, id)
+        res = json.loads(res)
+        if res['info'].has_key['player_info']: # success in sending a spy
+            self.post_recv_treasure(placeId)
+            return True
+        return False
+
+    def visit_friends(self):
+        print 'Total %d friends' % len(self.user.friend_list)
 
         # Go to every friends home
-        for friend in friends.values():
-            self.visit(friend['uid'], friend['uid'] in slaves)
+        for friend in self.user.friend_list:
+            self.visit(friend, friend in self.user.slave_list)
 
     def visit(self, id, is_slave):
         print 'Visiting %d' % id
@@ -310,7 +374,7 @@ class LittleWar():
 
             # unkown animal, write it down
             if force == 200:
-                beast_cap = (self.user.population-old_popu)/beast['beastNum']
+                beast_cap = (old_popu - self.user.population)/beast['beastNum']
                 print 'ID %d : %d' % (beast['beastId'], beast_cap)
                 beast_type[beast['beastId']] = ('unknow animal', beast_cap)
 
@@ -357,24 +421,38 @@ class LittleWar():
     def harvest_food(self, food, food_ids):
         # empty
         if food['start_time'] == 0:
+            print 'produce food'
             self.post_produce_food(food['id'])
         # finish
         elif food['end_time'] < self.user.time:
             # gain food
+            print 'gain food'
             self.post_gain_food(food['id'], food_ids)
             # produce food
+            print 'produce food'
             self.post_produce_food(food['id'])
 
     def harvest_soldier(self, soldier):
         # empty
         if soldier['start_time'] == 0:
+            print 'try to produce soldier'
             self.post_produce_soldier(soldier['id'])
         # finish
         elif soldier['end_time'] < self.user.time:
             # gain soldier
+            print 'gain soldier'
             self.post_gain_soldier(soldier['id'])
             # produce soldier
+            print 'try to produce soldier'
             self.post_produce_soldier(soldier['id'])
+
+    def post_recv_treasure(self, id):
+        return self.post(recv_treasure_URL % self.inuid,
+                         {'keyName':self.keyName, 'data':recv_treasure_data % id, 'requestSig':self.requestSig})
+
+    def post_send_spy(self, id, fId):
+        return self.post(send_spy_URL % self.inuid,
+                         {'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
 
     def post_accept_award(self, id):
         return self.post(accept_reward_URL % self.inuid,
@@ -463,41 +541,35 @@ class LittleWar():
         return res
 
     def start(self):
-        """ Start job """ 
-        if not self.login() :
-            sys.exit()
+        try:
+            """ Start job """ 
+            if not self.login() :
+                print 'error'
+                sys.exit()
 
-        print 'Login success!'
-        self.init()
-        self.fetch_data()
+            print 'Login success!'
+            self.init()
+            self.fetch_data()
+        except:
+            print '%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y")
+            return
 
-def check_sig():
-    key = "9eeb28f7617b482ab001f67043b3e177"
-    keyName = "a548d6aefbeb32e0"
-    requestSig='fc5e065b5c9b3bc528fad54a195533ee'
+def daemon(user_list, password, hour = 2):
+    if not hour in [2,4,12,24]:
+        print 'Hour could only be 2, 4, 12, 24'
+        sys.exit(0)
+        
+    produce_table = {2:1, 4:2, 12:3, 24:4}
+    produce_id = produce_table[hour]
 
-    lw = LittleWar()
-    print lw.get_sig(key, keyName)
-    if lw.get_sig(key, keyName) == requestSig:
-        print 'ok'
-
-def test_json():
-    f = open('attack_return')
-    str = f.read(999999)
-    j = json.loads(str)
-    print ['info']['enter_scene']['player_info']['pve']
-
-def check():
-    f1 = open('cc')
-    f1 = f1.read(999999)
-    f2 = open('dd')
-    f2 = f2.read(999999)
-    print len(f1), len(f2)
-    for i in range(len(f1)):
-        if f1[i] != f2[i]:
-            print i
-            print f1[i:]
-            break
+    while True:
+        print '%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y")
+        for user in user_list:
+            print 'user %s is starting' % user
+            lw = LittleWar(user, password)
+            lw.start()
+        print '%s : Job done, waiting for next job' % datetime.now().strftime("%I:%M%p %B %d %Y")
+        time.sleep(hour*60*60)
 
 if __name__ == '__main__':
     if(len(sys.argv) != 3):
@@ -509,5 +581,3 @@ if __name__ == '__main__':
 
     lw = LittleWar(sys.argv[1], sys.argv[2])
     lw.start()
-    #test_json()
-    #check()

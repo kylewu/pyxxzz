@@ -29,7 +29,7 @@ import httplib2
 import simplejson as json
 
 username = 'wenbin12@wenbinwu.com'
-password = 'CBAnbaWW'
+password = '123'
 
 # 24 Hours
 produce_id = 4

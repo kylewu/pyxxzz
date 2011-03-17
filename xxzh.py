@@ -28,11 +28,8 @@ from BeautifulSoup import BeautifulSoup
 import httplib2
 import simplejson as json
 
-username = 'wenbin12@wenbinwu.com'
-password = '123'
-
-# 24 Hours
-produce_id = 4
+# 2 Hours
+produce_id = 1
 
 loginURL = 'http://www.renren.com/PLogin.do'
 origURL  = 'http://www.renren.com/home'
@@ -91,7 +88,9 @@ beast_type = {
                 2002 : ('Ban Chi Xi'  , 10),
                 2004 : ('Ba Wang Long', 40), 
                 2005 : ('Ye Zhu'      , 5),
-                2020 : ('Lv Kong Que' , 15),
+                2006 : ('Zong Xiong'  , 10),
+
+                2020 : ('Lv Kong Que' , 12),
              }
 
 # NOTE 1. Little War uses link like http://xnapi.lw.fminutes.com/?xxx=xxx
@@ -134,9 +133,11 @@ class User():
     
 class LittleWar():
 
-    def __init__(self):
-        self.opener = None
-        self.headers = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.opener   = None
+        self.headers  = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
                    Mac OS X 10_6_4; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.133'}
 
     def post(self,url, parm):
@@ -160,10 +161,10 @@ class LittleWar():
         self.opener.addheaders = headers
 
         post_parm = ({
-            'email' : username,
-            'password' : password,
-            'origURL' : origURL,
-            'domain' : domain
+            'email'    : self.username,
+            'password' : self.password,
+            'origURL'  : origURL,
+            'domain'   : domain
                     })
 
         req = urllib2.Request(loginURL, urllib.urlencode(post_parm) )
@@ -229,7 +230,6 @@ class LittleWar():
         # 1.1 : Try to use skills
         self.use_skill(userinfo)
         # 1.2 : Try to harvest both food and soldier
-        # TODO test harverst and then produce
         self.harvest(scenerun)
         # 1.3 : Kill animals at home
         self.attack_beasts(scenerun)
@@ -241,14 +241,14 @@ class LittleWar():
     def visit_friends(self, data):
         friends = data['info']['gameData']['data']
         slaves  = data['info']['gameData']['slave']
-        print '%d friends' % len(friends)
+        print 'Total %d friends' % len(friends)
 
         # Go to every friends home
         for friend in friends.values():
             self.visit(friend['uid'], friend['uid'] in slaves)
 
     def visit(self, id, is_slave):
-        print 'visiting %d' % id
+        print 'Visiting %d' % id
         data = self.post_scene_run(id)
         data = json.loads(data)
         # attack beast
@@ -469,10 +469,9 @@ def check_sig():
         print 'ok'
 
 def test_json():
-    f = open('a')
+    f = open('attack_return')
     str = f.read(999999)
     j = json.loads(str)
-    print 'aaaaaa'
     print ['info']['enter_scene']['player_info']['pve']
 
 def check():
@@ -486,10 +485,16 @@ def check():
             print i
             print f1[i:]
             break
-            print '1111111111111'
 
 if __name__ == '__main__':
-    lw = LittleWar()
+    if(len(sys.argv) != 3):
+        print 'Usage : python xxzh.py username password'
+        sys.exit(0)
+
+    #username = 'wenbin15@wenbinwu.com'
+    #password = '1'
+
+    lw = LittleWar(sys.argv[1], sys.argv[2])
     lw.start()
     #test_json()
     #check()

@@ -84,12 +84,14 @@ defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'      
 defence_help_data   = '{"ids":%s,"troops":{"90002":178},"desc_id":"%d"}'
 
 beast_type = {  
-                2001 : ('Ju Xi'       , 5) ,
+                2001 : ('Ju Xi'       , 5 ),
                 2002 : ('Ban Chi Xi'  , 10),
                 2004 : ('Ba Wang Long', 40), 
-                2005 : ('Ye Zhu'      , 5),
+                2005 : ('Ye Zhu'      , 5 ),
                 2006 : ('Zong Xiong'  , 10),
+                2007 : ('some'        , 21),
 
+                # March 17 2011
                 2020 : ('Lv Kong Que' , 12),
              }
 
@@ -291,20 +293,31 @@ class LittleWar():
                     break
 
     def attack_beast(self, beast, fId):
+        # check if the beast is in our map
         if beast_type.has_key(beast['beastId']):
             name, force = beast_type[beast['beastId']]
         else:
+            old_popu = self.user.population
             name = 'unknow animal'
             force = 200
+
+        # compute how many soldiers are needed
         force = beast['beastNum'] * force
         if self.user.population > force:
-            print 'attacking %s' % name
             res = self.post_attack_beast(beast['pointId'], fId)
             res = json.loads(res)
             self.user.update(res['info']['player_info'])
+
+            # unkown animal, write it down
+            if force == 200:
+                beast_cap = (self.user.population-old_popu)/beast['beastNum']
+                print 'ID %d : %d' % (beast['beastId'], beast_cap)
+                beast_type[beast['beastId']] = ('unknow animal', beast_cap)
+
+            print 'attack %s' % name
             return True
         else:
-            print 'no enough population'
+            print 'no enough population, skip this animal'
             return False
 
     def use_skill(self, data):
@@ -372,47 +385,47 @@ class LittleWar():
                          {'keyName':self.keyName, 'data':defence_loot_data % id, 'requestSig':self.requestSig})
 
     def post_friend_run(self, time):
-        print 'post friend run'
+        #print 'post friend run'
         return self.post(friend_run_URL % self.inuid,
                          {'keyName':self.keyName, 'data':friend_run_data % time, 'requestSig':''})
 
     def post_scene_run_without_sig(self, id):
-        print 'post scene run'
+        #print 'post scene run'
         return self.post(scene_run_URL % self.inuid, 
                          {'keyName':self.keyName, 'data':scene_run_data % id, 'requestSig':''})
 
     def post_scene_run(self, id):
-        print 'post scene run'
+        #print 'post scene run'
         return self.post(scene_run_URL % self.inuid, 
                          {'keyName':self.keyName, 'data':scene_run_data % id, 'requestSig':self.requestSig})
     
     def post_gain_food(self, id, ids):
-        print 'post gain food'
+        #print 'post gain food'
         return self.post(gain_food_URL % self.inuid,
                          {'keyName':self.keyName, 'data':gain_food_data % (ids, id), 'requestSig':self.requestSig})
 
     def post_produce_food(self, id):
-        print 'post produce food'
+        #print 'post produce food'
         return self.post(produce_food_URL % self.inuid,
                          {'keyName':self.keyName, 'data':produce_food_data % (produce_id, id), 'requestSig':self.requestSig})
 
     def post_gain_soldier(self, id):
-        print 'post gain soldier'
+        #print 'post gain soldier'
         return self.post(gain_soldier_URL % self.inuid,
                          {'keyName':self.keyName, 'data':gain_soldier_data % (id), 'requestSig':self.requestSig})
 
     def post_produce_soldier(self, id):
-        print 'post produce soldier'
+        #print 'post produce soldier'
         return self.post(produce_soldier_URL % self.inuid, 
                     {'keyName':self.keyName, 'data':produce_soldier_data % (produce_id, id), 'requestSig':self.requestSig})
 
     def post_use_skill(self, skillId, fId):
-        print 'post use skill'
+        #print 'post use skill'
         return self.post(use_skill_URL % self.inuid,
                   {'keyName':self.keyName, 'data':use_skill_data % (skillId, fId), 'requestSig':self.requestSig})
 
     def post_attack_beast(self, pointId, fId):
-        print 'post attack beast'
+        #print 'post attack beast'
         return self.post(attack_beast_URL % self.inuid,
                   {'keyName':self.keyName, 'data':attack_beast_data % (pointId, fId), 'requestSig':self.requestSig})
 

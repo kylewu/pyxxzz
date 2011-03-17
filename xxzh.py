@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""*
+'''*
  * ----------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <admin@wenbinwu.com> wrote this file. As long as you retain this notice you
  * can do whatever you want with this stuff. If we meet some day, and you think
  * this stuff is worth it, you can buy me a beer in return Wenbin Wu
  * ----------------------------------------------------------------------------
- *"""
+ *'''
 
 '''
 
@@ -20,7 +20,6 @@
 
 '''
 
-
 import cookielib, urllib2, urllib
 import sys, time, re
 import hashlib
@@ -29,8 +28,8 @@ from BeautifulSoup import BeautifulSoup
 import httplib2
 import simplejson as json
 
-username = 'wenbin11@wenbinwu.com'
-password = 'password'
+username = 'wenbin12@wenbinwu.com'
+password = 'CBAnbaWW'
 
 # 24 Hours
 produce_id = 4
@@ -86,6 +85,14 @@ defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'      
 defence_riot_data   = '{"ids":%s}'
 defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
 defence_help_data   = '{"ids":%s,"troops":{"90002":178},"desc_id":"%d"}'
+
+beast_type = {  
+                2001 : ('Ju Xi'       , 5) ,
+                2002 : ('Ban Chi Xi'  , 10),
+                2004 : ('Ba Wang Long', 40), 
+                2005 : ('Ye Zhu'      , 5),
+                2020 : ('Lv Kong Que' , 15),
+             }
 
 # NOTE 1. Little War uses link like http://xnapi.lw.fminutes.com/?xxx=xxx
 #      GET request is informal when using urllib2   : GET ?xxx=xxx, it should be GET /?xxx=xxx
@@ -225,7 +232,7 @@ class LittleWar():
         # TODO test harverst and then produce
         self.harvest(scenerun)
         # 1.3 : Kill animals at home
-        self.attack_beast(scenerun)
+        self.attack_beasts(scenerun)
 
         # 2 : check friends
         friendrun = json.loads(friendrun)
@@ -245,7 +252,7 @@ class LittleWar():
         data = self.post_scene_run(id)
         data = json.loads(data)
         # attack beast
-        self.attack_beast(data)
+        self.attack_beasts(data)
 
         if is_slave:
             print 'dong ta yi xia'
@@ -267,7 +274,7 @@ class LittleWar():
 
         return
 
-    def attack_beast(self, data):
+    def attack_beasts(self, data):
         fId = data['info']['enter_scene']['player_info']['uid']
         pve = data['info']['enter_scene']['pve']
         if pve is None:
@@ -276,12 +283,29 @@ class LittleWar():
         #print pve
         if pve.__class__.__name__ == 'dict':
             for beast in pve.values():
-                #print beast['pointId']
-                self.post_attack_beast(beast['pointId'], fId)
+                if not self.attack_beast(beast, fId):
+                    break
         else:
             for beast in pve:
-                #print beast['pointId']
-                self.post_attack_beast(beast['pointId'], fId)
+                if not self.attack_beast(beast, fId):
+                    break
+
+    def attack_beast(self, beast, fId):
+        if beast_type.has_key(beast['beastId']):
+            name, force = beast_type[beast['beastId']]
+        else:
+            name = 'unknow animal'
+            force = 200
+        force = beast['beastNum'] * force
+        if self.user.population > force:
+            print 'attacking %s' % name
+            res = self.post_attack_beast(beast['pointId'], fId)
+            res = json.loads(res)
+            self.user.update(res['info']['player_info'])
+            return True
+        else:
+            print 'no enough population'
+            return False
 
     def use_skill(self, data):
         skillList = data['info']['skillList']

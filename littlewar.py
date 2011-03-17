@@ -30,7 +30,7 @@ import httplib2
 import simplejson as json
 
 # 2 Hours
-produce_id = 1
+produce_id = 3
 
 loginURL = 'http://www.renren.com/PLogin.do'
 origURL  = 'http://www.renren.com/home'
@@ -63,7 +63,8 @@ produce_soldier_URL = fminutesURL + 'api.php?inuId=%s&method=Produce.recruiteSol
 attack_beast_URL    = fminutesURL + 'api.php?inuId=%s&method=Pve.attackBeast'
 use_skill_URL       = fminutesURL + 'api.php?inuId=%s&method=Skill.useSkill'
 defence_loot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.loot'            # Chen Huo Da Jie
-accept_reward_URL   = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptReward'     # Dong Ta Yi Xia
+accept_reward_URL   = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptFeedReward' # Dong Ta Yi Xia
+
 # DATA
 gain_food_data      = '{"ids":%s,"id":%d}'
 produce_food_data   = '{"produce_id":%d,"id":%d}'
@@ -99,7 +100,7 @@ beast_type = {
                 2007 : ('some'        , 21),
 
                 2020 : ('Lv Kong Que' , 12),
-                2023 : ('some'        , 100),
+                2023 : ('Da Mi Tan'   , 100),
              }
 
 # NOTE 1. Little War uses link like http://xnapi.lw.fminutes.com/?xxx=xxx
@@ -216,7 +217,7 @@ class LittleWar():
                 break
         #print 'inuID %s' % self.inuid
 
-    def fetch_data(self):
+    def work(self):
         # scene recommend
         #scene_recommend = self.get(scenerecommendURL % self.inuid)
 
@@ -323,7 +324,7 @@ class LittleWar():
         if is_slave:
             print 'dong ta yi xia'
             # Dong Ta Yi Xia
-            self.post_accept_reward(slave)
+            self.post_accept_reward(23, id)
             return 
 
         if data['info']['enter_scene'].has_key('loot_flag'):
@@ -454,9 +455,9 @@ class LittleWar():
         return self.post(send_spy_URL % self.inuid,
                          {'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
 
-    def post_accept_award(self, id):
+    def post_accept_reward(self, actId, fId):
         return self.post(accept_reward_URL % self.inuid,
-                         {'keyName':self.keyName, 'data':accept_reward_data % id, 'requestSig':self.requestSig})
+                         {'keyName':self.keyName, 'data':accept_reward_data % (actId, fId), 'requestSig':self.requestSig})
 
     def post_defence_loot(self, id):
         return self.post(defence_loot_URL % self.inuid,
@@ -549,27 +550,30 @@ class LittleWar():
 
             print 'Login success!'
             self.init()
-            self.fetch_data()
+            self.work()
         except:
             print '%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y")
             return
 
-def daemon(user_list, password, hour = 2):
-    if not hour in [2,4,12,24]:
-        print 'Hour could only be 2, 4, 12, 24'
+def multi_user(user_list, password, id = 3):
+    if not id in range(1,5):
+        print 'produce id can be only from 1 to 4'
         sys.exit(0)
-        
-    produce_table = {2:1, 4:2, 12:3, 24:4}
-    produce_id = produce_table[hour]
 
+    produce_id = id
+
+    print '%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y")
+    for user in user_list:
+        print 'user %s is starting' % user
+        lw = LittleWar(user, password)
+        lw.start()
+    print '%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y")
+
+def daemon(user_list, password, id = 3):
+    #produce_table = {1:2, 2:4, 3:12, 4:24}
     while True:
-        print '%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y")
-        for user in user_list:
-            print 'user %s is starting' % user
-            lw = LittleWar(user, password)
-            lw.start()
-        print '%s : Job done, waiting for next job' % datetime.now().strftime("%I:%M%p %B %d %Y")
-        time.sleep(hour*60*60)
+        multi_user(user_list, password, id)
+        time.sleep(2*60*60)
 
 if __name__ == '__main__':
     if(len(sys.argv) != 3):

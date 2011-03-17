@@ -4,4 +4,7 @@ First, Python should be installed in your machine.
 Then, change password and user_list in start.py, and maybe you want to change sleep time also
 In command line, run start.py using this command : python start.py
 
-Notice, all food and soldier are produced in 2 hours by default
+Notice:
+	all food and soldier are produced in 2 hours by default
+	avoid using this tool and playing Little War in your own browser at the same time 
+

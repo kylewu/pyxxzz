@@ -288,7 +288,7 @@ class LittleWar(threading.Thread):
         self.visit_friends()
 
         # 3 : Special 
-        scenerun = self.post_scene_run_without_sig(self.user.id)
+        scenerun = self.post_scene_run(self.user.id)
         scenerun = json.loads(scenerun)
         self.spy_case(scenerun)
 

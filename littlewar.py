@@ -92,15 +92,15 @@ defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'      
 defence_help_data   = '{"ids":%s,"troops":{"90002":178},"desc_id":"%d"}'
 
 beast_type = {  
-                2001 : ('Ju Xi'       , 5 ),
-                2002 : ('Ban Chi Xi'  , 10),
-                2004 : ('Ba Wang Long', 40), 
-                2005 : ('Ye Zhu'      , 5 ),
-                2006 : ('Zong Xiong'  , 10),
-                2007 : ('some'        , 21),
+                2001 : ('Ju Xi'         , 5 )  ,
+                2002 : ('Ban Chi Xi'    , 10)  ,
+                2004 : ('Ba Wang Long'  , 40)  ,
+                2005 : ('Ye Zhu'        , 5 )  ,
+                2006 : ('Zong Xiong'    , 10)  ,
+                2007 : ('Meng Ma Xiang' , 20)  ,
 
-                2020 : ('Lv Kong Que' , 12),
-                2023 : ('Da Mi Tan'   , 100),
+                2020 : ('Lv Kong Que'   , 12)  ,
+                2023 : ('Da Mi Tan'     , 100) ,
              }
 
 # NOTE 1. Little War uses link like http://xnapi.lw.fminutes.com/?xxx=xxx

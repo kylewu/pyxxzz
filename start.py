@@ -15,6 +15,6 @@ import littlewar
 
 if __name__ == '__main__':
     user_list = ['wenbin%s@wenbinwu.com' % n for n in ['10', '11', '12', '13', '14', '15']]
-    password = '1234567'
+    password = '1234'
 
-    littlewar.daemon(user_list, password, 4)
+    littlewar.daemon(user_list, password, id=1, logfile='log')

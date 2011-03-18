@@ -21,7 +21,7 @@
 '''
 
 import cookielib, urllib2, urllib
-import sys, time, re
+import sys, time, re, os
 import hashlib
 from datetime import datetime
 
@@ -108,9 +108,12 @@ beast_type = {
 #      so I use httplib2
 #      2. httplib2 user-agent contains # sign which may cause problem
 
+
 class User():
       
     def __init__(self):
+
+
         self.id               = 0
         self.food             = 0
         self.grade            = 0
@@ -123,6 +126,7 @@ class User():
         self.slave_list = []
 
         self.time = 0
+
 
     def setTime(self, time):
         self.time = time
@@ -154,14 +158,26 @@ class User():
         print 'friend list : %s' % self.friend_list
         print 'slave list : %s' % self.slave_list
     
+
 class LittleWar():
 
-    def __init__(self, username, password):
+    def __init__(self, username, password, logfile='littlewar.log'):
+
+        try: 
+            self.logfile = open (logfile, "a")
+        except:
+            print "Error opening log file"
+            raise
+
         self.username = username
         self.password = password
         self.opener   = None
         self.headers  = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
                    Mac OS X 10_6_4; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.133'}
+
+    def log(self, msg):
+        self.logfile.write(msg+'\n')
+        self.logfile.flush()
 
     def post(self,url, parm):
         resp, content = httplib2.Http().request(url, 'POST', headers=self.headers, body=urllib.urlencode(parm))
@@ -196,6 +212,7 @@ class LittleWar():
 
         if res.geturl() == 'http://www.renren.com/home' :
             return True
+        print res.geturl()
         return False
 
     def init(self):
@@ -250,11 +267,12 @@ class LittleWar():
         #self.user.log()
 
         # visit myself
+        self.log('my id %d' % self.user.id)
         scenerun = self.post_scene_run_without_sig(self.user.id)
-        print 'my id %d' % self.user.id
 
         # 1 : Finish personal job at home
         scenerun = json.loads(scenerun)
+
         # 1.1 : Try to use skills
         self.use_skill(userinfo)
         # 1.2 : Try to harvest both food and soldier
@@ -262,19 +280,20 @@ class LittleWar():
         # 1.3 : Kill animals at home
         self.attack_beasts(scenerun)
 
-        # Special
-        #TODO not complete test
-        #self.spy_case(scenerun)
-
         # 2 : check friends
         self.visit_friends()
 
+        # 3 : Special 
+        scenerun = self.post_scene_run_without_sig(self.user.id)
+        scenerun = json.loads(scenerun)
+        self.spy_case(scenerun)
+
     # Special spy case started in Mar 17 2011
     def spy_case(self, data):
+        self.log('check spy')
         ids = [59094425,355852754,356032671,356151199,356298870,356527009,356837352]
         ids.remove(self.user.id)
 
-        print 'spy case'
         if not data['info']['enter_scene'].has_key('spy'):
             return
 
@@ -282,47 +301,56 @@ class LittleWar():
 
         for i in range(len(spy)):
 
-            #{"friend_uid":0,"time":1300382359,"status":1}
-            # status == 1 if available
             s = spy[i]
-            if s['status'] == 1:
-                b = False
-                for id in ids:
-                    b = self.deal_spy_case(i, id)
-                    if b:
+            if s['status'] == 0:
+                continue
+
+            self.log('try to send spy %d' % i)
+            b = False
+            for id in ids:
+                b = self.deal_spy_case(i, id)
+                if b:
+                    break
+            if not b:
+                self.log('try to send to friend')
+                purl_friends = [f for f in self.user.friend_list if not f in ids]
+                print purl_friends
+                # send to friends
+                for id in purl_friends:
+                    if self.self.deal_spy_case(i, id):
                         break
-                if not b:
-                    purl_friends = [f for f in self.user.friend_list if not f in ids]
-                    print purl_friends
-                    # send to friends
-                    for id in purl_friends:
-                        if self.self.deal_spy_case(i, id):
-                            break
 
     def deal_spy_case(self, placeId, id):
+        if self.user.population < 100:
+            return False
+
         res = self.post_send_spy(placeId, id)
         res = json.loads(res)
-        if res['info'].has_key['player_info']: # success in sending a spy
+        self.user.update(res['info']['player_info'])
+
+        res = json.loads(res)
+        if res['info'].has_key('player_info'): # success in sending a spy
+            self.log('success in sending spy to %d' % id)
             self.post_recv_treasure(placeId)
             return True
         return False
 
     def visit_friends(self):
-        print 'Total %d friends' % len(self.user.friend_list)
+        self.log('Total %d friends' % len(self.user.friend_list))
 
         # Go to every friends home
         for friend in self.user.friend_list:
             self.visit(friend, friend in self.user.slave_list)
 
     def visit(self, id, is_slave):
-        print 'Visiting %d' % id
+        self.log ('Visiting %d' % id)
         data = self.post_scene_run(id)
         data = json.loads(data)
         # attack beast
         self.attack_beasts(data)
 
         if is_slave:
-            print 'dong ta yi xia'
+            self.log('dong ta yi xia')
             # Dong Ta Yi Xia
             self.post_accept_reward(23, id)
             return 
@@ -335,13 +363,14 @@ class LittleWar():
         loot_times = data['info']['enter_scene']['loot_times']
         master_info = data['info']['enter_scene']['master_info']
         if loot_flag == 0 and len(master_info) and loot_times < 15 > 0:
-            print 'chen huo da jie'
+            self.log('chen huo da jie')
             # Chen Huo Da Jie
             self.post_defence_loot(id)
 
         return
 
     def attack_beasts(self, data):
+        self.log('check animal')
         fId = data['info']['enter_scene']['player_info']['uid']
         pve = data['info']['enter_scene']['pve']
         if pve is None:
@@ -376,16 +405,17 @@ class LittleWar():
             # unkown animal, write it down
             if force == 200:
                 beast_cap = (old_popu - self.user.population)/beast['beastNum']
-                print 'ID %d : %d' % (beast['beastId'], beast_cap)
+                self.lgo('ID %d : %d' % (beast['beastId'], beast_cap))
                 beast_type[beast['beastId']] = ('unknow animal', beast_cap)
 
-            print 'attack %s' % name
+            self.log('attack %s' % name)
             return True
         else:
-            print 'no enough population, skip this animal'
+            self.log('no enough population, skip this animal')
             return False
 
     def use_skill(self, data):
+        self.log('check skill')
         skillList = data['info']['skillList']
 
         # YeShouHaoJiao          1
@@ -393,10 +423,13 @@ class LittleWar():
         # MiHuanZhiXiang         26
         if self.user.time > skillList['1']['canUseTime']:
             self.post_use_skill(1, self.user.id)
+            self.log('YeShouHaoJiao')
         if self.user.time > skillList['26']['canUseTime']:
             self.post_use_skill(26, self.user.id)
+            self.log('MiHuanZhiXiang')
 
     def harvest(self, data):
+        self.log('check food and soldier')
 
         build_list = data['info']['enter_scene']['build_info']['build_list']
 
@@ -422,29 +455,29 @@ class LittleWar():
     def harvest_food(self, food, food_ids):
         # empty
         if food['start_time'] == 0:
-            print 'produce food'
+            self.log('produce food')
             self.post_produce_food(food['id'])
         # finish
         elif food['end_time'] < self.user.time:
             # gain food
-            print 'gain food'
+            self.log('gain food')
             self.post_gain_food(food['id'], food_ids)
             # produce food
-            print 'produce food'
+            self.log('produce food')
             self.post_produce_food(food['id'])
 
     def harvest_soldier(self, soldier):
         # empty
         if soldier['start_time'] == 0:
-            print 'try to produce soldier'
+            self.log('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
         # finish
         elif soldier['end_time'] < self.user.time:
             # gain soldier
-            print 'gain soldier'
+            self.log('gain soldier')
             self.post_gain_soldier(soldier['id'])
             # produce soldier
-            print 'try to produce soldier'
+            self.log('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
 
     def post_recv_treasure(self, id):
@@ -542,46 +575,48 @@ class LittleWar():
         return res
 
     def start(self):
+        self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
         try:
             """ Start job """ 
             if not self.login() :
-                print 'error'
+                self.log('error')
                 sys.exit()
 
-            print 'Login success!'
+            self.log('Login success!')
             self.init()
             self.work()
         except:
-            print '%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y")
+            self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
             return
+        self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
-def multi_user(user_list, password, id = 3):
+def multi_user(user_list, password, id = 3, logfile='littlewar.log'):
     if not id in range(1,5):
         print 'produce id can be only from 1 to 4'
         sys.exit(0)
 
     produce_id = id
 
-    print '%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y")
     for user in user_list:
-        print 'user %s is starting' % user
-        lw = LittleWar(user, password)
+        lw = LittleWar(user, password, logfile)
         lw.start()
-    print '%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y")
 
-def daemon(user_list, password, id = 3):
+def daemon(user_list, password, id = 3, logfile = 'littlewar.log'):
     #produce_table = {1:2, 2:4, 3:12, 4:24}
     while True:
-        multi_user(user_list, password, id)
+        multi_user(user_list, password, id, logfile)
         time.sleep(2*60*60)
 
 if __name__ == '__main__':
-    if(len(sys.argv) != 3):
-        print 'Usage : python xxzh.py username password'
+    if len(sys.argv) < 3:
+        print 'Usage : python xxzh.py username password logfile'
         sys.exit(0)
 
     #username = 'wenbin15@wenbinwu.com'
     #password = '1'
 
-    lw = LittleWar(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 4:
+        lw = LittleWar(sys.argv[1], sys.argv[2], sys.argv[3])
+    else:
+        lw = LittleWar(sys.argv[1], sys.argv[2])
     lw.start()

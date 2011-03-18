@@ -24,6 +24,7 @@ import cookielib, urllib2, urllib
 import sys, time, re, os
 import hashlib
 from datetime import datetime
+import threading
 
 from BeautifulSoup import BeautifulSoup
 import httplib2
@@ -159,9 +160,10 @@ class User():
         print 'slave list : %s' % self.slave_list
     
 
-class LittleWar():
+class LittleWar(threading.Thread):
 
-    def __init__(self, username, password, logfile='littlewar.log'):
+    def __init__(self, username, password, logfile='littlewar.log', loop = False):
+        threading.Thread.__init__(self)
 
         try: 
             self.logfile = open (logfile, "a")
@@ -175,8 +177,10 @@ class LittleWar():
         self.headers  = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
                    Mac OS X 10_6_4; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.133'}
 
+        self.loop = loop
+
     def log(self, msg):
-        self.logfile.write(msg+'\n')
+        self.logfile.write('%s : %s\n' % (self.username, msg))
         self.logfile.flush()
 
     def post(self,url, parm):
@@ -314,10 +318,9 @@ class LittleWar():
             if not b:
                 self.log('try to send to friend')
                 purl_friends = [f for f in self.user.friend_list if not f in ids]
-                print purl_friends
                 # send to friends
                 for id in purl_friends:
-                    if self.self.deal_spy_case(i, id):
+                    if self.deal_spy_case(i, id):
                         break
 
     def deal_spy_case(self, placeId, id):
@@ -326,10 +329,9 @@ class LittleWar():
 
         res = self.post_send_spy(placeId, id)
         res = json.loads(res)
-        self.user.update(res['info']['player_info'])
 
-        res = json.loads(res)
         if res['info'].has_key('player_info'): # success in sending a spy
+            self.user.update(res['info']['player_info'])
             self.log('success in sending spy to %d' % id)
             self.post_recv_treasure(placeId)
             return True
@@ -574,23 +576,28 @@ class LittleWar():
 
         return res
 
-    def start(self):
-        self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-        try:
-            """ Start job """ 
-            if not self.login() :
-                self.log('error')
-                sys.exit()
+    def run(self):
+        while True:
+            self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+            try:
+                """ Start job """ 
+                if not self.login() :
+                    self.log('error')
+                    sys.exit()
 
-            self.log('Login success!')
-            self.init()
-            self.work()
-        except:
-            self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-            return
-        self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+                self.log('Login success!')
+                self.init()
+                self.work()
+            except:
+                self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+            self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
-def multi_user(user_list, password, id = 3, logfile='littlewar.log'):
+            if not self.loop:
+                break
+            time.sleep(2*60*60)
+
+
+def start(user_list, password, id = 1, logfile='littlewar.log', loop = False):
     if not id in range(1,5):
         print 'produce id can be only from 1 to 4'
         sys.exit(0)
@@ -598,14 +605,8 @@ def multi_user(user_list, password, id = 3, logfile='littlewar.log'):
     produce_id = id
 
     for user in user_list:
-        lw = LittleWar(user, password, logfile)
+        lw = LittleWar(user, password, logfile, loop)
         lw.start()
-
-def daemon(user_list, password, id = 3, logfile = 'littlewar.log'):
-    #produce_table = {1:2, 2:4, 3:12, 4:24}
-    while True:
-        multi_user(user_list, password, id, logfile)
-        time.sleep(2*60*60)
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:

@@ -30,9 +30,6 @@ from BeautifulSoup import BeautifulSoup
 import httplib2
 import simplejson as json
 
-# 2 Hours
-produce_id = 3
-
 loginURL = 'http://www.renren.com/PLogin.do'
 origURL  = 'http://www.renren.com/home'
 domain   = 'renren.com'
@@ -171,7 +168,7 @@ class User():
 
 class LittleWar():
 
-    def __init__(self, username, password, logfile='log'):
+    def __init__(self, username, password, produce_id=1, logfile='log'):
 
         try: 
             self.logfile = open (logfile, "a")
@@ -184,6 +181,8 @@ class LittleWar():
         self.opener   = None
         self.headers  = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
                    Mac OS X 10_6_4; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.133'}
+
+        self.produce_id = produce_id
 
     def log(self, msg):
         self.logfile.write('%s : %s\n' % (self.username, msg))
@@ -419,7 +418,7 @@ class LittleWar():
             # unkown animal, write it down
             if force == 200:
                 beast_cap = (old_popu - self.user.population)/beast['beastNum']
-                self.lgo('ID %d : %d' % (beast['beastId'], beast_cap))
+                self.log('ID %d : %d' % (beast['beastId'], beast_cap))
                 beast_type[beast['beastId']] = ('unknow animal', beast_cap)
 
             self.log('attack %s' % name)
@@ -535,7 +534,7 @@ class LittleWar():
     def post_produce_food(self, id):
         #print 'post produce food'
         return self.post(produce_food_URL % self.inuid,
-                         {'keyName':self.keyName, 'data':produce_food_data % (produce_id, id), 'requestSig':self.requestSig})
+                         {'keyName':self.keyName, 'data':produce_food_data % (self.produce_id, id), 'requestSig':self.requestSig})
 
     def post_gain_soldier(self, id):
         #print 'post gain soldier'
@@ -545,7 +544,7 @@ class LittleWar():
     def post_produce_soldier(self, id):
         #print 'post produce soldier'
         return self.post(produce_soldier_URL % self.inuid, 
-                    {'keyName':self.keyName, 'data':produce_soldier_data % (produce_id, id), 'requestSig':self.requestSig})
+                    {'keyName':self.keyName, 'data':produce_soldier_data % (self.produce_id, id), 'requestSig':self.requestSig})
 
     def post_use_skill(self, skillId, fId):
         #print 'post use skill'
@@ -605,40 +604,38 @@ class LittleWar():
             self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
         self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
-def single_start(user, password, id = 2, logfile='log', loop = False):
-    if not id in range(1,5):
+def single_start(user, password, produce_id = 1, logfile='log', loop = False):
+    if not produce_id in range(1,5):
         print 'produce id can be only from 1 to 4'
         return 
 
-    produce_id = id
-
     while True:
-        lw = LittleWar(user, password, logfile)
+        lw = LittleWar(user, password, produce_id, logfile)
         lw.start()
         if not loop:
             break
         time.sleep(2*60*60)
 
-def multiple_start(user_list, password, id = 2, logfile='log', loop = False):
-    if not id in range(1,5):
+def multiple_start(user_list, password, produce_id = 1, logfile='log', loop = False):
+    if not produce_id in range(1,5):
         print 'produce id can be only from 1 to 4'
         return
 
-    produce_id = id
-
     for user in user_list:
-        t = threading.Thread(target=single_start, args=(user, password, id, logfile, loop))
+        t = threading.Thread(target=single_start, args=(user, password, produce_id, logfile, loop))
         t.start()
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print 'Usage : python xxzh.py username password [logfile]'
+        print 'Usage : python xxzh.py username password [produce_id] [logfile]'
         sys.exit(0)
 
     #username = 'wenbin15@wenbinwu.com'
     #password = '1'
 
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
+        single_start(sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4])
+    elif len(sys.argv) == 4:
         single_start(sys.argv[1], sys.argv[2], sys.argv[3])
     elif len(sys.argv) == 3:
         single_start(sys.argv[1], sys.argv[2])

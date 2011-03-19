@@ -125,12 +125,18 @@ class User():
 
         self.friend_list = []
         self.slave_list = []
+        self.touched_list = []
 
         self.time = 0
 
 
     def setTime(self, time):
         self.time = time
+
+    def update_touched_list(self, tl):
+        if not len(tl) == 0:
+            for t in tl.keys():
+                self.touched_list.append(int(t))
 
     def update_friend_list(self, friends):
         for friend in friends.values():
@@ -162,11 +168,11 @@ class User():
 
 class LittleWar(threading.Thread):
 
-    def __init__(self, username, password, logfile='littlewar.log', loop = False):
+    def __init__(self, username, password, logfile='log', loop = False):
         threading.Thread.__init__(self)
 
         try: 
-            self.logfile = open (logfile, "a")
+            self.logfile = open (logfile, "w")
         except:
             print "Error opening log file"
             raise
@@ -253,6 +259,7 @@ class LittleWar(threading.Thread):
         self.user = User()
         self.user.update(userinfo['info']['player_info'])
         self.user.setTime(userinfo['info']['time'])
+        self.user.update_touched_list(userinfo['info']['actionList'])
 
         self.keyName = userinfo['info']['getKey']['keyName']
         self.key = userinfo['info']['getKey']['key']
@@ -354,7 +361,7 @@ class LittleWar(threading.Thread):
         # attack beast
         self.attack_beasts(data)
 
-        if is_slave:
+        if is_slave and (not id in self.user.touched_list) and len(self.user.touched_list) < 4:
             self.log('dong ta yi xia')
             # Dong Ta Yi Xia
             self.post_accept_reward(23, id)
@@ -597,7 +604,7 @@ class LittleWar(threading.Thread):
             time.sleep(2*60*60)
 
 
-def start(user_list, password, id = 1, logfile='littlewar.log', loop = False):
+def start(user_list, password, id = 1, logfile='log', loop = False):
     if not id in range(1,5):
         print 'produce id can be only from 1 to 4'
         sys.exit(0)
@@ -616,7 +623,9 @@ if __name__ == '__main__':
     #username = 'wenbin15@wenbinwu.com'
     #password = '1'
 
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
+        lw = LittleWar(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    elif len(sys.argv) == 4:
         lw = LittleWar(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
         lw = LittleWar(sys.argv[1], sys.argv[2])

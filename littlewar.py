@@ -278,10 +278,13 @@ class LittleWar(threading.Thread):
         scenerun = json.loads(scenerun)
 
         # 1.1 : Try to use skills
+        self.log('check skill')
         self.use_skill(userinfo)
         # 1.2 : Try to harvest both food and soldier
+        self.log('check food and soldier')
         self.harvest(scenerun)
         # 1.3 : Kill animals at home
+        self.log('check animal')
         self.attack_beasts(scenerun)
 
         # 2 : check friends
@@ -372,7 +375,6 @@ class LittleWar(threading.Thread):
         return
 
     def attack_beasts(self, data):
-        self.log('check animal')
         fId = data['info']['enter_scene']['player_info']['uid']
         pve = data['info']['enter_scene']['pve']
         if pve is None:
@@ -417,7 +419,6 @@ class LittleWar(threading.Thread):
             return False
 
     def use_skill(self, data):
-        self.log('check skill')
         skillList = data['info']['skillList']
 
         # YeShouHaoJiao          1
@@ -431,7 +432,6 @@ class LittleWar(threading.Thread):
             self.log('MiHuanZhiXiang')
 
     def harvest(self, data):
-        self.log('check food and soldier')
 
         build_list = data['info']['enter_scene']['build_info']['build_list']
 

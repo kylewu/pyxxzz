@@ -65,6 +65,7 @@ attack_beast_URL    = fminutesURL + 'api.php?inuId=%s&method=Pve.attackBeast'
 use_skill_URL       = fminutesURL + 'api.php?inuId=%s&method=Skill.useSkill'
 defence_loot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.loot'            # Chen Huo Da Jie
 accept_reward_URL   = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptFeedReward' # Dong Ta Yi Xia
+daily_reward_URL    = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptReward'
 
 # DATA
 gain_food_data      = '{"ids":%s,"id":%d}'
@@ -253,6 +254,9 @@ class LittleWar():
 
         # get keyname and data from userinfo
         userinfo = json.loads(userinfo)
+        # daily reward
+        if userinfo['info']['rewardItems'] is not None:
+            self.post_daily_reward()
 
         # user info
         self.user = User()
@@ -496,6 +500,10 @@ class LittleWar():
         return self.post(send_spy_URL % self.inuid,
                          {'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
 
+    def post_daily_reward(self):
+        return self.post(daily_reward_URL % self.inuid,
+                         {'keyName':self.keyName, 'data':'null', 'requestSig':self.requestSig})
+
     def post_accept_reward(self, actId, fId):
         return self.post(accept_reward_URL % self.inuid,
                          {'keyName':self.keyName, 'data':accept_reward_data % (actId, fId), 'requestSig':self.requestSig})
@@ -588,7 +596,7 @@ class LittleWar():
             """ Start job """ 
             if not self.login() :
                 self.log('error')
-                sys.exit()
+                return
 
             self.log('Login success!')
             self.init()
@@ -616,7 +624,6 @@ def multiple_start(user_list, password, id = 2, logfile='log', loop = False):
         print 'produce id can be only from 1 to 4'
         return
 
-    # id = 1 time 12hours
     produce_id = id
 
     for user in user_list:

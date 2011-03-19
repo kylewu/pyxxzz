@@ -632,6 +632,6 @@ if __name__ == '__main__':
     #password = '1'
 
     if len(sys.argv) == 4:
-        single_start(sys.argv[1], sys.argv[2], sys.argv[3]))
+        single_start(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
-        single_start(sys.argv[1], sys.argv[2]))
+        single_start(sys.argv[1], sys.argv[2])

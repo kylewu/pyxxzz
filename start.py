@@ -18,4 +18,4 @@ if __name__ == '__main__':
     user_list.append('wenbin@wenbinwu.com')
     password = '1234'
 
-    littlewar.start(user_list, password, id=1, logfile='log', loop=True)
+    littlewar.multiple_start(user_list, password, id=2, logfile='log', loop=True)

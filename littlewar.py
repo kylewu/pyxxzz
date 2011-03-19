@@ -134,11 +134,13 @@ class User():
         self.time = time
 
     def update_touched_list(self, tl):
+        self.touched_list = []
         if not len(tl) == 0:
             for t in tl.keys():
                 self.touched_list.append(int(t))
 
     def update_friend_list(self, friends):
+        self.friend_list = []
         for friend in friends.values():
             self.friend_list.append(friend['uid'])
         self.friend_list.remove(1)
@@ -166,13 +168,12 @@ class User():
         print 'slave list : %s' % self.slave_list
     
 
-class LittleWar(threading.Thread):
+class LittleWar():
 
-    def __init__(self, username, password, logfile='log', loop = False):
-        threading.Thread.__init__(self)
+    def __init__(self, username, password, logfile='log'):
 
         try: 
-            self.logfile = open (logfile, "w")
+            self.logfile = open (logfile, "a")
         except:
             print "Error opening log file"
             raise
@@ -182,8 +183,6 @@ class LittleWar(threading.Thread):
         self.opener   = None
         self.headers  = {'Content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Macintosh; U; Intel\
                    Mac OS X 10_6_4; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.133'}
-
-        self.loop = loop
 
     def log(self, msg):
         self.logfile.write('%s : %s\n' % (self.username, msg))
@@ -583,50 +582,56 @@ class LittleWar(threading.Thread):
 
         return res
 
-    def run(self):
-        while True:
-            self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-            try:
-                """ Start job """ 
-                if not self.login() :
-                    self.log('error')
-                    sys.exit()
+    def start(self):
+        self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+        try:
+            """ Start job """ 
+            if not self.login() :
+                self.log('error')
+                sys.exit()
 
-                self.log('Login success!')
-                self.init()
-                self.work()
-            except:
-                self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-            self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+            self.log('Login success!')
+            self.init()
+            self.work()
+        except:
+            self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+        self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
-            if not self.loop:
-                break
-            time.sleep(2*60*60)
-
-
-def start(user_list, password, id = 1, logfile='log', loop = False):
+def single_start(user, password, id = 2, logfile='log', loop = False):
     if not id in range(1,5):
         print 'produce id can be only from 1 to 4'
-        sys.exit(0)
+        return 
 
     produce_id = id
 
-    for user in user_list:
-        lw = LittleWar(user, password, logfile, loop)
+    while True:
+        lw = LittleWar(user, password, logfile)
         lw.start()
+        if not loop:
+            break
+        time.sleep(2*60*60)
+
+def multiple_start(user_list, password, id = 2, logfile='log', loop = False):
+    if not id in range(1,5):
+        print 'produce id can be only from 1 to 4'
+        return
+
+    # id = 1 time 12hours
+    produce_id = id
+
+    for user in user_list:
+        t = threading.Thread(target=single_start, args=(user, password, id, logfile, loop))
+        t.start()
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print 'Usage : python xxzh.py username password logfile'
+        print 'Usage : python xxzh.py username password [logfile]'
         sys.exit(0)
 
     #username = 'wenbin15@wenbinwu.com'
     #password = '1'
 
-    if len(sys.argv) == 5:
-        lw = LittleWar(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-    elif len(sys.argv) == 4:
-        lw = LittleWar(sys.argv[1], sys.argv[2], sys.argv[3])
+    if len(sys.argv) == 4:
+        single_start(sys.argv[1], sys.argv[2], sys.argv[3]))
     else:
-        lw = LittleWar(sys.argv[1], sys.argv[2])
-    lw.start()
+        single_start(sys.argv[1], sys.argv[2]))

@@ -253,9 +253,6 @@ class LittleWar():
 
         # get keyname and data from userinfo
         userinfo = json.loads(userinfo)
-        # daily reward
-        if userinfo['info']['rewardItems'] is not None:
-            self.post_daily_reward()
 
         # user info
         self.user = User()
@@ -282,6 +279,11 @@ class LittleWar():
         # visit myself
         self.log('my id %d' % self.user.id)
         scenerun = self.post_scene_run_without_sig(self.user.id)
+
+        # 0 : Daily reward
+        if userinfo['info']['rewardItems'] is not None:
+            self.log('daily reward')
+            self.post_daily_reward()
 
         # 1 : Finish personal job at home
         scenerun = json.loads(scenerun)
@@ -446,6 +448,7 @@ class LittleWar():
 
         food_ids = []
         food_list = []
+        soldier_list = []
 
         for build in build_list.values():
 
@@ -458,10 +461,13 @@ class LittleWar():
                 food_ids.append(build['id'])
             elif build_id >= 40000 and build_id < 50000:
                 #### ARMY ####
-                self.harvest_soldier(build)
+                soldier_list.append(build)
 
-        for i in range(len(food_ids)):
-            self.harvest_food(food_list[i], food_ids)
+        for food_build in food_list:
+            self.harvest_food(food_build, food_ids)
+
+        for soldier_bulild in soldier_list:
+            self.harvest_soldier(soldier_bulild)
 
     def harvest_food(self, food, food_ids):
         # empty

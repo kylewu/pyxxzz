@@ -24,6 +24,7 @@ import cookielib, urllib2, urllib
 import sys, time, re, os
 import hashlib
 from datetime import datetime
+import time
 import threading
 
 from BeautifulSoup import BeautifulSoup
@@ -294,10 +295,12 @@ class LittleWar():
         # 1.2 : Try to harvest both food and soldier
         self.log('check food and soldier')
         self.harvest(scenerun)
+
         # 1.3 : Kill animals at home
         self.log('check animal')
         self.attack_beasts(scenerun)
 
+        a = time.time()
         # 2 : check friends
         self.visit_friends()
 
@@ -305,6 +308,9 @@ class LittleWar():
         scenerun = self.post_scene_run(self.user.id)
         scenerun = json.loads(scenerun)
         self.spy_case(scenerun)
+        b = time.time()
+
+        return int(b-a)
 
     # Special spy case started in Mar 17 2011
     def spy_case(self, data):
@@ -596,6 +602,8 @@ class LittleWar():
         return res
 
     def start(self):
+        
+        t = 0
         self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
         try:
             """ Start job """ 
@@ -605,10 +613,14 @@ class LittleWar():
 
             self.log('Login success!')
             self.init()
-            self.work()
+            t = self.work()
         except:
             self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
         self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+
+        self.log('Next job will begin in %d s' % (7200-t))
+        return t
+
 
 def single_start(user, password, produce_id = 1, logfile='log', loop = False):
     if not produce_id in range(1,5):
@@ -617,10 +629,10 @@ def single_start(user, password, produce_id = 1, logfile='log', loop = False):
 
     while True:
         lw = LittleWar(user, password, produce_id, logfile)
-        lw.start()
+        t = lw.start()
         if not loop:
             break
-        time.sleep(2*60*60)
+        time.sleep(2*60*60 - t)
 
 def multiple_start(user_list, password, produce_id = 1, logfile='log', loop = False):
     if not produce_id in range(1,5):
@@ -642,6 +654,6 @@ if __name__ == '__main__':
     if len(sys.argv) == 5:
         single_start(sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4])
     elif len(sys.argv) == 4:
-        single_start(sys.argv[1], sys.argv[2], sys.argv[3])
+        single_start(sys.argv[1], sys.argv[2], int(sys.argv[3]))
     elif len(sys.argv) == 3:
         single_start(sys.argv[1], sys.argv[2])

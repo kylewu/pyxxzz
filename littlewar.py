@@ -63,7 +63,7 @@ attack_beast_URL    = fminutesURL + 'api.php?inuId=%s&method=Pve.attackBeast'
 use_skill_URL       = fminutesURL + 'api.php?inuId=%s&method=Skill.useSkill'
 defence_loot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.loot'            # Chen Huo Da Jie
 accept_reward_URL   = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptFeedReward' # Dong Ta Yi Xia
-daily_reward_URL    = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptReward'
+daily_reward_URL    = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptReward'    
 
 # DATA
 gain_food_data      = '{"ids":%s,"id":%d}'
@@ -76,18 +76,16 @@ defence_loot_data   = '{"desc_id":"%d"}'
 accept_reward_data  = '{"actId":%d,"fId":"%d"}'
 
 # Special 
-send_spy_URL        = fminutesURL + 'api.php?inuId=%s&method=spy.sentSpy'
-send_spy_data       = '{"placeId":%d,"fId":"%d"}'
-recv_treasure_URL   = fminutesURL + 'api.php?inuId=%s&method=spy.recieveTreasure'
-recv_treasure_data  = '{"placeId":%d}'
+#send_spy_URL        = fminutesURL + 'api.php?inuId=%s&method=spy.sentSpy'
+#send_spy_data       = '{"placeId":%d,"fId":"%d"}'
+#recv_treasure_URL   = fminutesURL + 'api.php?inuId=%s&method=spy.recieveTreasure'
+#recv_treasure_data  = '{"placeId":%d}'
 
 # Not Supported
-feed_reward_URL     = fminutesURL + 'api.php?inuId=%s&method=Reward.acceptFeedReward' 
-feed_reward_data    = '{"actId":%d,"fId":"%d"}'
-defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'
-defence_fight_data  = '{"ids":%s,"troops":{%d":%d},"desc_id":"%d"}'
-defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Pai Bing Zhan Ling
+defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
 defence_riot_data   = '{"ids":%s}'
+defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Pai Bing Zhan Ling
+defence_fight_data  = '{"ids":%s,"troops":{%d":%d},"desc_id":"%d"}'
 defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
 defence_help_data   = '{"ids":%s,"troops":{"90002":178},"desc_id":"%d"}'
 
@@ -122,9 +120,11 @@ class User():
         self.population_limit = 0
         self.population_all   = 0
 
-        self.friend_list = []
-        self.slave_list = []
-        self.touched_list = []
+        self.friend_list = list()
+        self.slave_list = list()
+        self.touched_list = list()
+
+        self.troops = dict()
 
         self.time = 0
 
@@ -155,6 +155,11 @@ class User():
         self.population_limit = user["population_limit"]
         self.grade            = user["grade"]
         self.mp               = user["mp"]
+
+        for army in user["troops"].values():
+            for id in army:
+                self.troops[id] = army[id]
+
 
     def log(self):
         print 'id %d grade %d food %d population %d population_all %d population_limit %d mp %d' % (self.id, self.grade,
@@ -303,59 +308,70 @@ class LittleWar():
         a = time.time()
         # 2 : check friends
         self.visit_friends()
+        b = time.time()
 
         # 3 : Special 
-        scenerun = self.post_scene_run(self.user.id)
-        scenerun = json.loads(scenerun)
-        self.spy_case(scenerun)
-        b = time.time()
+
+        # Spy case
+        #if self.user.id == 59094425:
+            #b = time.time()
+            #return int(b-a)
+        #scenerun = self.post_scene_run(self.user.id)
+        #scenerun = json.loads(scenerun)
+        #self.spy_case(scenerun)
 
         return int(b-a)
 
     # Special spy case started in Mar 17 2011
-    def spy_case(self, data):
-        self.log('check spy')
-        ids = [59094425,355852754,356032671,356151199,356298870,356527009,356837352]
-        ids.remove(self.user.id)
+    #def spy_case(self, data):
+        #self.log('check spy')
+        #ids = [59094425,355852754,356032671,356151199,356298870,356527009,356837352]
+        #ids.remove(self.user.id)
+        #if self.user.id == 59094425:
+            #ids.append(229266798)
+            #ids.append(277307056)
+            #ids.append(84744)
+            #ids.append(222799676)
 
-        if not data['info']['enter_scene'].has_key('spy'):
-            return
+        #if not data['info']['enter_scene'].has_key('spy'):
+            #return
 
-        spy = data['info']['enter_scene']['spy']
+        #spy = data['info']['enter_scene']['spy']
 
-        for i in range(len(spy)):
+        #for i in range(len(spy)):
 
-            s = spy[i]
-            if s['status'] == 0:
-                continue
+            #s = spy[i]
+            #if s['status'] == 0:
+                #continue
 
-            self.log('try to send spy %d' % i)
-            b = False
-            for id in ids:
-                b = self.deal_spy_case(i, id)
-                if b:
-                    break
-            if not b:
-                self.log('try to send to friend')
-                purl_friends = [f for f in self.user.friend_list if not f in ids]
-                # send to friends
-                for id in purl_friends:
-                    if self.deal_spy_case(i, id):
-                        break
+            #self.log('try to send spy %d' % i)
+            #b = False
+            #for id in ids:
+                #b = self.deal_spy_case(i, id)
+                #if b:
+                    #break
+            #if not b:
+                #self.log('try to send to friend')
+                #purl_friends = [f for f in self.user.friend_list if not f in ids]
+                ## send to friends
+                #for id in purl_friends:
+                    #if self.deal_spy_case(i, id):
+                        #break
 
-    def deal_spy_case(self, placeId, id):
-        if self.user.population < 100:
-            return False
+    #def deal_spy_case(self, placeId, id):
+        #if self.user.population < 100:
+            #return False
 
-        res = self.post_send_spy(placeId, id)
-        res = json.loads(res)
+        #res = self.post_send_spy(placeId, id)
+        #res = json.loads(res)
 
-        if res['info'].has_key('player_info'): # success in sending a spy
-            self.user.update(res['info']['player_info'])
-            self.log('success in sending spy to %d' % id)
-            self.post_recv_treasure(placeId)
-            return True
-        return False
+        #if res['info'].has_key('player_info'): # success in sending a spy
+            #self.user.update(res['info']['player_info'])
+            #self.log('success in sending spy to %d' % id)
+            #self.post_recv_treasure(placeId)
+            #return True
+        #return False
+
 
     def visit_friends(self):
         self.log('Total %d friends' % len(self.user.friend_list))
@@ -368,6 +384,7 @@ class LittleWar():
         self.log ('Visiting %d' % id)
         data = self.post_scene_run(id)
         data = json.loads(data)
+
         # attack beast
         self.attack_beasts(data)
 
@@ -632,7 +649,7 @@ def single_start(user, password, produce_id = 1, logfile='log', loop = False):
         t = lw.start()
         if not loop:
             break
-        time.sleep(2*60*60 - t)
+        time.sleep(2*60*60 - t + 5)
 
 def multiple_start(user_list, password, produce_id = 1, logfile='log', loop = False):
     if not produce_id in range(1,5):
@@ -647,9 +664,6 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print 'Usage : python xxzh.py username password [produce_id] [logfile]'
         sys.exit(0)
-
-    #username = 'wenbin15@wenbinwu.com'
-    #password = '1'
 
     if len(sys.argv) == 5:
         single_start(sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4])

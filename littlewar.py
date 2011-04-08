@@ -308,6 +308,7 @@ class LittleWar():
         # 1.2 : Try to harvest both food and soldier
         self.log('check food and soldier')
         self.harvest(scenerun)
+
         # 1.3 : Kill animals at home
         self.log('check animal')
         self.attack_beasts(scenerun)
@@ -522,14 +523,6 @@ class LittleWar():
             self.log('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
 
-    #def post_recv_treasure(self, id):
-        #return self.post(recv_treasure_URL % self.inuid,
-                         #{'keyName':self.keyName, 'data':recv_treasure_data % id, 'requestSig':self.requestSig})
-
-    #def post_send_spy(self, id, fId):
-        #return self.post(send_spy_URL % self.inuid,
-                         #{'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
-
     def post_daily_reward(self):
         return self.post(daily_reward_URL % self.inuid,
                          {'keyName':self.keyName, 'data':'null', 'requestSig':self.requestSig})
@@ -647,7 +640,7 @@ class LittleWar():
             t = self.work()
         except:
             self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-            t = 7140
+            t = 7000
         self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
         self.log('Next job will begin in %d s' % (7200-t))

@@ -21,15 +21,19 @@
 '''
 
 import cookielib, urllib2, urllib
-import sys, time, re, os
 import hashlib
-from datetime import datetime
+import re
 import time
+import sys
+from datetime import datetime
 import threading
 
 from BeautifulSoup import BeautifulSoup
 import httplib2
 import simplejson as json
+
+main_id = 59094425
+last_id = 356837352
 
 loginURL = 'http://www.renren.com/PLogin.do'
 origURL  = 'http://www.renren.com/home'
@@ -75,19 +79,13 @@ use_skill_data      = '{"skillId":%d,"fId":"%d"}'
 defence_loot_data   = '{"desc_id":"%d"}'
 accept_reward_data  = '{"actId":%d,"fId":"%d"}'
 
-# Special 
-#send_spy_URL        = fminutesURL + 'api.php?inuId=%s&method=spy.sentSpy'
-#send_spy_data       = '{"placeId":%d,"fId":"%d"}'
-#recv_treasure_URL   = fminutesURL + 'api.php?inuId=%s&method=spy.recieveTreasure'
-#recv_treasure_data  = '{"placeId":%d}'
-
-# Not Supported
+# Test
 defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
-defence_riot_data   = '{"ids":%s}'
+defence_riot_data   = '{"ids":[64,99,36,86,7,75,45]}'
 defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Pai Bing Zhan Ling
-defence_fight_data  = '{"ids":%s,"troops":{%d":%d},"desc_id":"%d"}'
+defence_fight_data  = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
 defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
-defence_help_data   = '{"ids":%s,"troops":{"90002":178},"desc_id":"%d"}'
+defence_help_data   = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
 
 beast_type = {  
                 2001 : ('Ju Xi'         , 5 )  ,
@@ -156,10 +154,17 @@ class User():
         self.grade            = user["grade"]
         self.mp               = user["mp"]
 
+        self.troops = dict()
         for army in user["troops"].values():
             for id in army:
-                self.troops[id] = army[id]
+                self.troops[id] = army[id]['num']
 
+    def troops_str(self):
+        tl = list()
+        for t in self.troops.keys():
+            tl.append('"%s":%d' % (t, self.troops[t]))
+
+        return '{%s}' % ','.join(tl)
 
     def log(self):
         print 'id %d grade %d food %d population %d population_all %d population_limit %d mp %d' % (self.id, self.grade,
@@ -194,12 +199,12 @@ class LittleWar():
         self.logfile.write('%s : %s\n' % (self.username, msg))
         self.logfile.flush()
 
-    def post(self,url, parm):
-        resp, content = httplib2.Http().request(url, 'POST', headers=self.headers, body=urllib.urlencode(parm))
+    def post(self, url, parm):
+        resp, content = httplib2.Http(timeout=15).request(url, 'POST', headers=self.headers, body=urllib.urlencode(parm))
         return content
 
     def get(self, url):
-        resp, content = httplib2.Http().request(url, headers=self.headers)
+        resp, content = httplib2.Http(timeout=15).request(url, headers=self.headers)
         return content
 
     def login(self):
@@ -294,13 +299,15 @@ class LittleWar():
         # 1 : Finish personal job at home
         scenerun = json.loads(scenerun)
 
+        # 1.0 : save main account itself
+        self.save_myself(self.user.id == main_id and len(scenerun['info']['enter_scene']['master_info']) > 0)
+
         # 1.1 : Try to use skills
         self.log('check skill')
         self.use_skill(userinfo)
         # 1.2 : Try to harvest both food and soldier
         self.log('check food and soldier')
         self.harvest(scenerun)
-
         # 1.3 : Kill animals at home
         self.log('check animal')
         self.attack_beasts(scenerun)
@@ -308,82 +315,75 @@ class LittleWar():
         a = time.time()
         # 2 : check friends
         self.visit_friends()
+
+        # 3 : attack last account
+        self.attack_last()
         b = time.time()
-
-        # 3 : Special 
-
-        # Spy case
-        #if self.user.id == 59094425:
-            #b = time.time()
-            #return int(b-a)
-        #scenerun = self.post_scene_run(self.user.id)
-        #scenerun = json.loads(scenerun)
-        #self.spy_case(scenerun)
 
         return int(b-a)
 
-    # Special spy case started in Mar 17 2011
-    #def spy_case(self, data):
-        #self.log('check spy')
-        #ids = [59094425,355852754,356032671,356151199,356298870,356527009,356837352]
-        #ids.remove(self.user.id)
-        #if self.user.id == 59094425:
-            #ids.append(229266798)
-            #ids.append(277307056)
-            #ids.append(84744)
-            #ids.append(222799676)
+    def save_myself(self, b):
+        if not b:
+            return
+        while True:
+            self.log('save myself')
+            content = json.loads(self.post_defence_riot())
+            self.user.update(content['info']['player_info'])
+            if content['info']['riot']['riot_info']['result'] == False:
+                self.log('riot success')
+                break
+            if self.user.population < 10:
+                self.log('no enough army')
+                break
 
-        #if not data['info']['enter_scene'].has_key('spy'):
-            #return
+    def attack_last(self):
+        if self.user.id == last_id or self.user.id == main_id:
+            return
 
-        #spy = data['info']['enter_scene']['spy']
+        # update userinfo first
+        content = json.loads(self.post_scene_run(self.user.id))
+        self.user.update(content['info']['enter_scene']['player_info'])
 
-        #for i in range(len(spy)):
+        content = json.loads(self.post_scene_run(last_id))
+        if len(content['info']['enter_scene']['master_info']) > 0 \
+                and content['info']['enter_scene']['master_info']['uid'] == self.user.id:
+            return
 
-            #s = spy[i]
-            #if s['status'] == 0:
-                #continue
+        if self.user.population == 0:
+            return
 
-            #self.log('try to send spy %d' % i)
-            #b = False
-            #for id in ids:
-                #b = self.deal_spy_case(i, id)
-                #if b:
-                    #break
-            #if not b:
-                #self.log('try to send to friend')
-                #purl_friends = [f for f in self.user.friend_list if not f in ids]
-                ## send to friends
-                #for id in purl_friends:
-                    #if self.deal_spy_case(i, id):
-                        #break
-
-    #def deal_spy_case(self, placeId, id):
-        #if self.user.population < 100:
-            #return False
-
-        #res = self.post_send_spy(placeId, id)
-        #res = json.loads(res)
-
-        #if res['info'].has_key('player_info'): # success in sending a spy
-            #self.user.update(res['info']['player_info'])
-            #self.log('success in sending spy to %d' % id)
-            #self.post_recv_treasure(placeId)
-            #return True
-        #return False
-
+        while True:
+            self.log('attack last account')
+            content = json.loads(self.post_defence_fight(self.user.troops_str(), last_id))
+            self.user.update(content['info']['player_info'])
+            if self.user.population < 200 or content['info']['fight']['fight_info']['result']:
+                break
 
     def visit_friends(self):
         self.log('Total %d friends' % len(self.user.friend_list))
 
         # Go to every friends home
         for friend in self.user.friend_list:
-            self.visit(friend, friend in self.user.slave_list)
+            try:
+                self.visit(friend, friend in self.user.slave_list)
+            except:
+                self.log('timeout')
+                continue
+            time.sleep(0.5)
 
     def visit(self, id, is_slave):
         self.log ('Visiting %d' % id)
         data = self.post_scene_run(id)
         data = json.loads(data)
+
+        # save main account 
+        if self.user.id != main_id and id == main_id and len(data['info']['enter_scene']['master_info']) > 0:
+            while True:
+                self.log('save main account')
+                content = json.loads(self.post_defence_help(self.user.troops_str(), id))
+                self.user.update(content['info']['player_info'])
+                if len(content['info']['master_info']) == 0 or self.user.population < 10:
+                    break
 
         # attack beast
         self.attack_beasts(data)
@@ -488,9 +488,11 @@ class LittleWar():
 
         for food_build in food_list:
             self.harvest_food(food_build, food_ids)
+            time.sleep(0.5)
 
         for soldier_bulild in soldier_list:
             self.harvest_soldier(soldier_bulild)
+            time.sleep(0.5)
 
     def harvest_food(self, food, food_ids):
         # empty
@@ -520,13 +522,13 @@ class LittleWar():
             self.log('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
 
-    def post_recv_treasure(self, id):
-        return self.post(recv_treasure_URL % self.inuid,
-                         {'keyName':self.keyName, 'data':recv_treasure_data % id, 'requestSig':self.requestSig})
+    #def post_recv_treasure(self, id):
+        #return self.post(recv_treasure_URL % self.inuid,
+                         #{'keyName':self.keyName, 'data':recv_treasure_data % id, 'requestSig':self.requestSig})
 
-    def post_send_spy(self, id, fId):
-        return self.post(send_spy_URL % self.inuid,
-                         {'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
+    #def post_send_spy(self, id, fId):
+        #return self.post(send_spy_URL % self.inuid,
+                         #{'keyName':self.keyName, 'data':send_spy_data % (id, fId), 'requestSig':self.requestSig})
 
     def post_daily_reward(self):
         return self.post(daily_reward_URL % self.inuid,
@@ -585,6 +587,18 @@ class LittleWar():
         return self.post(attack_beast_URL % self.inuid,
                   {'keyName':self.keyName, 'data':attack_beast_data % (pointId, fId), 'requestSig':self.requestSig})
 
+    def post_defence_riot(self):
+        return self.post(defence_riot_URL % self.inuid, 
+                {'keyName':self.keyName, 'data':defence_riot_data, 'requestSig':self.requestSig})
+
+    def post_defence_fight(self, troops, fId):
+        return self.post(defence_fight_URL % self.inuid,
+                {'keyName':self.keyName, 'data':defence_fight_data % (troops, fId), 'requestSig':self.requestSig})
+
+    def post_defence_help(self, troops, fId):
+        return self.post(defence_help_URL % self.inuid,
+                {'keyName':self.keyName, 'data':defence_help_data % (troops, fId), 'requestSig':self.requestSig})
+
     def get_inc(self, keyName):
         map = {}
 
@@ -633,6 +647,7 @@ class LittleWar():
             t = self.work()
         except:
             self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+            t = 7140
         self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
 
         self.log('Next job will begin in %d s' % (7200-t))

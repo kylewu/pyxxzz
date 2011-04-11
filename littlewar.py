@@ -25,8 +25,8 @@ import hashlib
 import re
 import time
 import sys
-from datetime import datetime
 import threading
+import logging
 
 from BeautifulSoup import BeautifulSoup
 import httplib2
@@ -155,6 +155,9 @@ class User():
         self.mp               = user["mp"]
 
         self.troops = dict()
+        if len(user["troops"]) == 0:
+            return
+
         for army in user["troops"].values():
             for id in army:
                 self.troops[id] = army[id]['num']
@@ -179,13 +182,7 @@ class User():
 
 class LittleWar():
 
-    def __init__(self, username, password, produce_id=1, logfile='log'):
-
-        try: 
-            self.logfile = open (logfile, "a")
-        except:
-            print "Error opening log file"
-            raise
+    def __init__(self, username, password, produce_id, logger):
 
         self.username = username
         self.password = password
@@ -195,9 +192,7 @@ class LittleWar():
 
         self.produce_id = produce_id
 
-    def log(self, msg):
-        self.logfile.write('%s : %s\n' % (self.username, msg))
-        self.logfile.flush()
+        self.logger = logger
 
     def post(self, url, parm):
         resp, content = httplib2.Http(timeout=15).request(url, 'POST', headers=self.headers, body=urllib.urlencode(parm))
@@ -240,7 +235,7 @@ class LittleWar():
         res = self.opener.open(lwURL).read()
         soup = BeautifulSoup(res)
         next_link = soup.iframe['src']
-        #print next_link
+        #self.logger.debug(next_link)
 
         # open little war frame and get inuid
         res = self.get(next_link)
@@ -252,18 +247,16 @@ class LittleWar():
             if m:
                 self.inuid = m.group('inuid')
                 break
-        #print 'inuID %s' % self.inuid
+        #self.logger.debug('inuID %s' % self.inuid)
 
     def work(self):
         # scene recommend
         #scene_recommend = self.get(scenerecommendURL % self.inuid)
 
         # scene init
-        userinfo = self.post(scene_init_URL % self.inuid, {'data':'null'})
-        #print userinfo
-
-        # get keyname and data from userinfo
-        userinfo = json.loads(userinfo)
+        userinfo = json.loads(self.post(scene_init_URL % self.inuid, {'data':'null'}))
+        #self.logger.debug('scene init')
+        #self.logger.debug(userinfo)
 
         # user info
         self.user = User()
@@ -279,42 +272,41 @@ class LittleWar():
         #print self.keyName, self.key, self.requestSig
 
         # friend run
-        friendrun = self.post_friend_run(self.user.time)
+        friendrun = json.loads(self.post_friend_run(self.user.time))
+        #self.logger.debug('friend run')
         
         # friend list and slave list
-        friendrun = json.loads(friendrun)
         self.user.update_friend_list(friendrun['info']['gameData']['data'])
         self.user.update_slave_list(friendrun['info']['gameData']['slave'])
         #self.user.log()
 
         # visit myself
-        self.log('my id %d' % self.user.id)
-        scenerun = self.post_scene_run_without_sig(self.user.id)
+        self.logger.debug('my id %d' % self.user.id)
+        scenerun = json.loads(self.post_scene_run_without_sig(self.user.id))
 
         # 0 : Daily reward
         if userinfo['info']['rewardItems'] is not None:
-            self.log('daily reward')
+            self.logger.info('daily reward')
             self.post_daily_reward()
 
         # 1 : Finish personal job at home
-        scenerun = json.loads(scenerun)
 
         # 1.0 : save main account itself
         self.save_myself(self.user.id == main_id and len(scenerun['info']['enter_scene']['master_info']) > 0)
 
         # 1.1 : Try to use skills
-        self.log('check skill')
+        self.logger.info('check skill')
         self.use_skill(userinfo)
         # 1.2 : Try to harvest both food and soldier
-        self.log('check food and soldier')
+        self.logger.info('check food and soldier')
         self.harvest(scenerun)
-
         # 1.3 : Kill animals at home
-        self.log('check animal')
+        self.logger.info('check animal')
         self.attack_beasts(scenerun)
 
         a = time.time()
         # 2 : check friends
+        self.logger.info('check friend')
         self.visit_friends()
 
         # 3 : attack last account
@@ -327,24 +319,27 @@ class LittleWar():
         if not b:
             return
         while True:
-            self.log('save myself')
+            self.logger.info('save myself')
             content = json.loads(self.post_defence_riot())
             self.user.update(content['info']['player_info'])
             if content['info']['riot']['riot_info']['result'] == False:
-                self.log('riot success')
+                self.logger.info('riot success')
                 break
             if self.user.population < 10:
-                self.log('no enough army')
+                self.logger.info('no enough army')
                 break
 
     def attack_last(self):
         if self.user.id == last_id or self.user.id == main_id:
             return
 
+        if self.user.population < 50:
+            return
+
         # update userinfo first
         content = json.loads(self.post_scene_run(self.user.id))
         self.user.update(content['info']['enter_scene']['player_info'])
-
+        
         content = json.loads(self.post_scene_run(last_id))
         if len(content['info']['enter_scene']['master_info']) > 0 \
                 and content['info']['enter_scene']['master_info']['uid'] == self.user.id:
@@ -354,33 +349,33 @@ class LittleWar():
             return
 
         while True:
-            self.log('attack last account')
+            self.logger.info('attack last account')
             content = json.loads(self.post_defence_fight(self.user.troops_str(), last_id))
             self.user.update(content['info']['player_info'])
             if self.user.population < 200 or content['info']['fight']['fight_info']['result']:
                 break
 
     def visit_friends(self):
-        self.log('Total %d friends' % len(self.user.friend_list))
+        self.logger.debug('Total %d friends' % len(self.user.friend_list))
 
         # Go to every friends home
         for friend in self.user.friend_list:
             try:
                 self.visit(friend, friend in self.user.slave_list)
             except:
-                self.log('timeout')
+                self.logger.error('timeout')
                 continue
             time.sleep(0.5)
 
     def visit(self, id, is_slave):
-        self.log ('Visiting %d' % id)
+        self.logger.debug ('Visiting %d' % id)
         data = self.post_scene_run(id)
         data = json.loads(data)
 
         # save main account 
         if self.user.id != main_id and id == main_id and len(data['info']['enter_scene']['master_info']) > 0:
             while True:
-                self.log('save main account')
+                self.logger.info('save main account')
                 content = json.loads(self.post_defence_help(self.user.troops_str(), id))
                 self.user.update(content['info']['player_info'])
                 if len(content['info']['master_info']) == 0 or self.user.population < 10:
@@ -390,7 +385,7 @@ class LittleWar():
         self.attack_beasts(data)
 
         if is_slave and (not id in self.user.touched_list) and len(self.user.touched_list) < 4:
-            self.log('dong ta yi xia')
+            self.logger.info('dong ta yi xia')
             # Dong Ta Yi Xia
             self.post_accept_reward(23, id)
             return 
@@ -403,7 +398,7 @@ class LittleWar():
         loot_times = data['info']['enter_scene']['loot_times']
         master_info = data['info']['enter_scene']['master_info']
         if loot_flag == 0 and len(master_info) and loot_times < 15 > 0:
-            self.log('chen huo da jie')
+            self.logger.info('chen huo da jie')
             # Chen Huo Da Jie
             self.post_defence_loot(id)
 
@@ -444,13 +439,13 @@ class LittleWar():
             # unkown animal, write it down
             if force == 200:
                 beast_cap = (old_popu - self.user.population)/beast['beastNum']
-                self.log('ID %d : %d' % (beast['beastId'], beast_cap))
+                self.logger.debug('ID %d : %d' % (beast['beastId'], beast_cap))
                 beast_type[beast['beastId']] = ('unknow animal', beast_cap)
 
-            self.log('attack %s' % name)
+            self.logger.debug('attack %s' % name)
             return True
         else:
-            self.log('no enough population, skip this animal')
+            self.logger.debug('no enough population, skip this animal')
             return False
 
     def use_skill(self, data):
@@ -461,10 +456,10 @@ class LittleWar():
         # MiHuanZhiXiang         26
         if self.user.time > skillList['1']['canUseTime']:
             self.post_use_skill(1, self.user.id)
-            self.log('YeShouHaoJiao')
+            self.logger.info('YeShouHaoJiao')
         if self.user.time > skillList['26']['canUseTime']:
             self.post_use_skill(26, self.user.id)
-            self.log('MiHuanZhiXiang')
+            self.logger.info('MiHuanZhiXiang')
 
     def harvest(self, data):
 
@@ -498,29 +493,29 @@ class LittleWar():
     def harvest_food(self, food, food_ids):
         # empty
         if food['start_time'] == 0:
-            self.log('produce food')
+            self.logger.info('produce food')
             self.post_produce_food(food['id'])
         # finish
         elif food['end_time'] < self.user.time:
             # gain food
-            self.log('gain food')
+            self.logger.info('gain food')
             self.post_gain_food(food['id'], food_ids)
             # produce food
-            self.log('produce food')
+            self.logger.info('produce food')
             self.post_produce_food(food['id'])
 
     def harvest_soldier(self, soldier):
         # empty
         if soldier['start_time'] == 0:
-            self.log('try to produce soldier')
+            self.logger.info('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
         # finish
         elif soldier['end_time'] < self.user.time:
             # gain soldier
-            self.log('gain soldier')
+            self.logger.info('gain soldier')
             self.post_gain_soldier(soldier['id'])
             # produce soldier
-            self.log('try to produce soldier')
+            self.logger.info('try to produce soldier')
             self.post_produce_soldier(soldier['id'])
 
     def post_daily_reward(self):
@@ -628,44 +623,63 @@ class LittleWar():
     def start(self):
         
         t = 0
-        self.log('%s : Start working' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+        self.logger.info('Start working')
         try:
             """ Start job """ 
             if not self.login() :
-                self.log('error')
+                self.logger.error('Login error')
                 return
 
-            self.log('Login success!')
+            self.logger.info('Login success!')
             self.init()
             t = self.work()
         except:
-            self.log('%s : Error ' % datetime.now().strftime("%I:%M%p %B %d %Y"))
-            t = 7000
-        self.log('%s : Job done' % datetime.now().strftime("%I:%M%p %B %d %Y"))
+            self.logger.error('Error ')
+            t = 7140
+        self.logger.info('Job done') 
 
-        self.log('Next job will begin in %d s' % (7200-t))
         return t
 
+def init_log(name):
+    #create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
 
-def single_start(user, password, produce_id = 1, logfile='log', loop = False):
+    #create file handler and set level to debug
+    fh = logging.FileHandler("log")
+    fh.setLevel(logging.DEBUG)
+
+    #create formatter
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    #add formatter to ch and fh
+    fh.setFormatter(formatter)
+    #add ch and fh to logger
+    logger.addHandler(fh)
+    return logger
+
+def single_start(user, password, produce_id = 1, loop = False):
     if not produce_id in range(1,5):
         print 'produce id can be only from 1 to 4'
         return 
 
+    logger = init_log(user)
+
     while True:
-        lw = LittleWar(user, password, produce_id, logfile)
+        lw = LittleWar(user, password, produce_id, logger)
         t = lw.start()
         if not loop:
             break
+        logger.info('Next job will begin in %d s' % (7200-t))
         time.sleep(2*60*60 - t + 5)
 
-def multiple_start(user_list, password, produce_id = 1, logfile='log', loop = False):
+def multiple_start(user_list, password, produce_id = 1, loop = False):
     if not produce_id in range(1,5):
         print 'produce id can be only from 1 to 4'
         return
 
     for user in user_list:
-        t = threading.Thread(target=single_start, args=(user, password, produce_id, logfile, loop))
+        t = threading.Thread(target=single_start, args=(user, password, produce_id, loop))
         t.start()
 
 if __name__ == '__main__':

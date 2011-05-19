@@ -333,7 +333,7 @@ class LittleWar():
         if self.user.id == last_id or self.user.id == main_id:
             return
 
-        if self.user.population < 50:
+        if self.user.population < 500:
             return
 
         # update userinfo first
@@ -352,7 +352,7 @@ class LittleWar():
             self.logger.info('attack last account')
             content = json.loads(self.post_defence_fight(self.user.troops_str(), last_id))
             self.user.update(content['info']['player_info'])
-            if self.user.population < 200 or content['info']['fight']['fight_info']['result']:
+            if self.user.population < 500 or content['info']['fight']['fight_info']['result']:
                 break
 
     def visit_friends(self):
@@ -628,7 +628,8 @@ class LittleWar():
             """ Start job """ 
             if not self.login() :
                 self.logger.error('Login error')
-                return
+                t = 7140
+                return t
 
             self.logger.info('Login success!')
             self.init()

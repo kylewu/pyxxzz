@@ -292,7 +292,8 @@ class LittleWar():
         # 1 : Finish personal job at home
 
         # 1.0 : save main account itself
-        self.save_myself(self.user.id == main_id and len(scenerun['info']['enter_scene']['master_info']) > 0)
+        #self.save_myself(self.user.id == main_id and len(scenerun['info']['enter_scene']['master_info']) > 0)
+        #self.save_myself(self.user.id == last_id and len(scenerun['info']['enter_scene']['master_info']) > 0)
 
         # 1.1 : Try to use skills
         self.logger.info('check skill')
@@ -310,13 +311,15 @@ class LittleWar():
         self.visit_friends()
 
         # 3 : attack last account
-        self.attack_last()
+        #self.attack_last()
         b = time.time()
 
         return int(b-a)
 
     def save_myself(self, b):
         if not b:
+            return
+        if self.user.population < 100:
             return
         while True:
             self.logger.info('save myself')

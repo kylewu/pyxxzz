@@ -80,12 +80,19 @@ defence_loot_data   = '{"desc_id":"%d"}'
 accept_reward_data  = '{"actId":%d,"fId":"%d"}'
 
 # Test
-defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
-defence_riot_data   = '{"ids":[64,99,36,86,7,75,45]}'
-defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Pai Bing Zhan Ling
-defence_fight_data  = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
+# unavailable in YingXiongShiDai
+#defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
+#defence_riot_data   = '{"ids":[64,99,36,86,7,75,45]}'
+#defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Pai Bing Zhan Ling
+#defence_fight_data  = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
 defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
 defence_help_data   = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
+defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
+defence_riot_data   = '{"round":1,"troops":%s}'
+defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'
+first_defence_fight_data  = '{"round":1,"desc_id":"%d","troops":%s,"ids":[16,17,19,20,21,126,8,9,35,14,15]}'
+defence_fight_data  = '{"desc_id":"%d","ids":[16,17,19,20,21,126,8,9,35,14,15]}'
+
 
 beast_type = {  
                 2001 : ('Ju Xi'         , 5 )  ,
@@ -323,7 +330,7 @@ class LittleWar():
             return
         while True:
             self.logger.info('save myself')
-            content = json.loads(self.post_defence_riot())
+            content = json.loads(self.post_defence_riot(self.user.troops_str()))
             self.user.update(content['info']['player_info'])
             if content['info']['riot']['riot_info']['result'] == False:
                 self.logger.info('riot success')
@@ -342,7 +349,7 @@ class LittleWar():
         # update userinfo first
         content = json.loads(self.post_scene_run(self.user.id))
         self.user.update(content['info']['enter_scene']['player_info'])
-        
+
         content = json.loads(self.post_scene_run(last_id))
         if len(content['info']['enter_scene']['master_info']) > 0 \
                 and content['info']['enter_scene']['master_info']['uid'] == self.user.id:
@@ -351,12 +358,16 @@ class LittleWar():
         if self.user.population == 0:
             return
 
-        while True:
-            self.logger.info('attack last account')
-            content = json.loads(self.post_defence_fight(self.user.troops_str(), last_id))
-            self.user.update(content['info']['player_info'])
-            if self.user.population < 500 or content['info']['fight']['fight_info']['result']:
-                break
+        self.logger.info('attack last account')
+        content = json.loads(self.post_defence_fight(True, self.user.troops_str(), last_id))
+        while content['info'].has_key('battleInfo') and content['info']['battleInfo']['attack'].has_key('remainForce') and content['info']['battleInfo']['attack']['remainForce'] != 0:
+            #print content['info']['battleInfo']['attack']['remainForce']
+            time.sleep(0.5)
+            content = json.loads(self.post_defence_fight(False, self.user.troops_str(), last_id))
+            #self.logger.info(content)
+
+        self.logger.info('attack done')
+
 
     def visit_friends(self):
         self.logger.debug('Total %d friends' % len(self.user.friend_list))
@@ -578,13 +589,22 @@ class LittleWar():
         return self.post(attack_beast_URL % self.inuid,
                   {'keyName':self.keyName, 'data':attack_beast_data % (pointId, fId), 'requestSig':self.requestSig})
 
-    def post_defence_riot(self):
+    def post_defence_riot(self, troops):
         return self.post(defence_riot_URL % self.inuid, 
-                {'keyName':self.keyName, 'data':defence_riot_data, 'requestSig':self.requestSig})
+                {'keyName':self.keyName, 'data':defence_riot_data % troops, 'requestSig':self.requestSig})
 
-    def post_defence_fight(self, troops, fId):
+    # Old
+    #def post_defence_fight(self, troops, fId):
+    #    return self.post(defence_fight_URL % self.inuid,
+    #            {'keyName':self.keyName, 'data':defence_fight_data % (troops, fId), 'requestSig':self.requestSig})
+
+    def post_defence_fight(self, first, troops, fId):
+        #self.logger.info(self.inuid)
+        if first is True:
+            return self.post(defence_fight_URL % self.inuid,
+                {'keyName':self.keyName, 'data':first_defence_fight_data % (fId, troops), 'requestSig':self.requestSig})
         return self.post(defence_fight_URL % self.inuid,
-                {'keyName':self.keyName, 'data':defence_fight_data % (troops, fId), 'requestSig':self.requestSig})
+                {'keyName':self.keyName, 'data':defence_fight_data % fId, 'requestSig':self.requestSig})
 
     def post_defence_help(self, troops, fId):
         return self.post(defence_help_URL % self.inuid,

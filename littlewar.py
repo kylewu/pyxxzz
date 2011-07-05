@@ -342,8 +342,8 @@ class LittleWar():
         if self.user.id == last_id or self.user.id == main_id:
             return
 
-        #if self.user.population < 500:
-        #    return
+        if self.user.population < 500:
+            return
 
         # update userinfo first
         content = json.loads(self.post_scene_run(self.user.id))

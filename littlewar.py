@@ -318,7 +318,7 @@ class LittleWar():
         self.visit_friends()
 
         # 3 : attack last account
-        #self.attack_last()
+        self.attack_last()
         b = time.time()
 
         return int(b-a)

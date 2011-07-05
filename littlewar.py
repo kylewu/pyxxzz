@@ -80,16 +80,15 @@ defence_loot_data   = '{"desc_id":"%d"}'
 accept_reward_data  = '{"actId":%d,"fId":"%d"}'
 
 # Test
-# unavailable in YingXiongShiDai
-#defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
-#defence_riot_data   = '{"ids":[64,99,36,86,7,75,45]}'
-#defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Pai Bing Zhan Ling
-#defence_fight_data  = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
-defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
-defence_help_data   = '{"ids":[64,99,36,86,7,75,45],"troops":%s,"desc_id":"%d"}'
+# NOT AVAILABLE
 defence_riot_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.riot'            # Fan Kang
 defence_riot_data   = '{"round":1,"troops":%s}'
-defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'
+
+# NOT AVAILABLE
+defence_help_URL    = fminutesURL + 'api.php?inuId=%s&method=Defence.help'            # Pai Bing Ying Jiu
+defence_help_data   = '{"desc_id":"356837352","ids":[16,17,19,20,21,126,8,9,35,14,15],"troops":{"90005":0,"90007":79},"round":1}'
+
+defence_fight_URL   = fminutesURL + 'api.php?inuId=%s&method=Defence.fight'           # Zhan Ling
 first_defence_fight_data  = '{"round":1,"desc_id":"%d","troops":%s,"ids":[16,17,19,20,21,126,8,9,35,14,15]}'
 defence_fight_data  = '{"desc_id":"%d","ids":[16,17,19,20,21,126,8,9,35,14,15]}'
 
@@ -343,8 +342,8 @@ class LittleWar():
         if self.user.id == last_id or self.user.id == main_id:
             return
 
-        if self.user.population < 500:
-            return
+        #if self.user.population < 500:
+        #    return
 
         # update userinfo first
         content = json.loads(self.post_scene_run(self.user.id))
@@ -360,8 +359,7 @@ class LittleWar():
 
         self.logger.info('attack last account')
         content = json.loads(self.post_defence_fight(True, self.user.troops_str(), last_id))
-        while content['info'].has_key('battleInfo') and content['info']['battleInfo']['attack'].has_key('remainForce') and content['info']['battleInfo']['attack']['remainForce'] != 0:
-            #print content['info']['battleInfo']['attack']['remainForce']
+        while len(content['info']) > 0 and content['info'].has_key('battleInfo') and content['info']['battleInfo']['attack'].has_key('remainForce') and content['info']['battleInfo']['attack']['remainForce'] != 0:
             time.sleep(0.5)
             content = json.loads(self.post_defence_fight(False, self.user.troops_str(), last_id))
             #self.logger.info(content)

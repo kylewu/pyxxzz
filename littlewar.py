@@ -164,9 +164,9 @@ class User():
         if len(user["troops"]) == 0:
             return
 
-        for army in user["troops"].values():
-            for id in army:
-                self.troops[id] = army[id]['num']
+        army = user['troops']['%d'%self.id]
+        for id in army:
+            self.troops[id] = army[id]['num']
 
     def troops_str(self):
         tl = list()
@@ -262,9 +262,10 @@ class LittleWar():
         # scene init
         userinfo = json.loads(self.post(scene_init_URL % self.inuid, {'data':'null'}))
         #self.logger.debug('scene init')
-        #self.logger.debug(userinfo)
+        self.logger.debug(userinfo)
 
         # user info
+        self.logger.debug('update user info')
         self.user = User()
         self.user.update(userinfo['info']['player_info'])
         self.user.setTime(userinfo['info']['time'])
@@ -274,12 +275,15 @@ class LittleWar():
         self.key = userinfo['info']['getKey']['key']
 
         # compute sig
+        self.logger.debug('get sig')
         self.requestSig = self.get_sig(self.key, self.keyName)
-        #print self.keyName, self.key, self.requestSig
+        #self.logger.debug( self.keyName)
+        #self.logger.debug(self.key)
+        #self.logger.debug(self.requestSig)
 
         # friend run
         friendrun = json.loads(self.post_friend_run(self.user.time))
-        #self.logger.debug('friend run')
+        self.logger.debug('friend run')
         
         # friend list and slave list
         self.user.update_friend_list(friendrun['info']['gameData']['data'])
@@ -666,6 +670,7 @@ def init_log(name):
     #create logger
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    #logger.setLevel(logging.DEBUG)
 
     #create file handler and set level to debug
     fh = logging.FileHandler("log")
@@ -693,7 +698,11 @@ def single_start(user, password, produce_id = 1, loop = False):
         if not loop:
             break
         logger.info('Next job will begin in %d s' % (7200-t))
-        time.sleep(2*60*60 - t + 5)
+        #time.sleep(2*60*60 - t + 5)
+        if 10*60 - t + 5 < 0:
+            time.sleep(5)
+        else:
+            time.sleep(10*60 - t + 5)
 
 def multiple_start(user_list, password, produce_id = 1, loop = False):
     if not produce_id in range(1,5):
